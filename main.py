@@ -6,3 +6,6 @@ print(f"Scikit-learn version: {sklearn.__version__}")
 
 if __name__ == "__main__":
     print("Ambiente configurado com sucesso!")
+    # Adicione esta linha no final do main.py (mas antes do if __name__ == "__main__":)
+    # na branch 'main', para simular outro desenvolvedor trabalhando aqui.
+    print("--- Versão da Main: Iniciando Execução Principal ---")
