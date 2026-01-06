@@ -9,3 +9,8 @@ if __name__ == "__main__":
     # Adicione esta linha no final do main.py (mas antes do if __name__ == "__main__":)
     # na branch 'main', para simular outro desenvolvedor trabalhando aqui.
     print("--- Versão da Main: Iniciando Execução Principal ---")
+    from data_preprocessing import load_data, preprocess_data
+    print("\n--- Módulo de Pré-processamento Integrado ---")
+    data_frame = load_data()
+    processed_data_frame = preprocess_data(data_frame)
+    print("Processamento integrado concluído.")
