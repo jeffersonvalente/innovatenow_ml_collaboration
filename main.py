@@ -1,72 +1,129 @@
-# main.py
+import os
+import numpy as np
 import pandas as pd
 import sklearn
-# Adicione estes imports
-import numpy as np
+
+from sklearn.linear_model import LogisticRegression
+
+from src.model_trainer import ModelTrainer
 from src.utils.data_splitter import DataSplitter
 from src.utils.data_processor import DataProcessor
 from data_preprocessing import load_data, preprocess_data
 
+
 print(f"Pandas version: {pd.__version__}")
 print(f"Scikit-learn version: {sklearn.__version__}")
-print("--- Versão da Main: Iniciando Execução Principal ---") # Manter essa linha da Tarefa 2
-
-# Criar um DataFrame de exemplo ou usar o dummy_data.csv
-df_raw = load_data() # Usar a função de carregamento existente
-
-# Integrar o DataSplitter
-print("\n--- Utilizando DataSplitter ---")
-try:
-    splitter = DataSplitter(df_raw)
-    train_df, test_df = splitter.split(test_size=0.25, random_state=42)
-    print(f"Dados originais: {df_raw.shape[0]} amostras")
-    print(f"Dados de treino: {train_df.shape[0]} amostras")
-    print(f"Dados de teste: {test_df.shape[0]} amostras")
-except (TypeError, ValueError) as e:
-    print(f"Erro ao usar DataSplitter: {e}")
+print("--- Versão da Main: Iniciando Execução Principal ---")
 
 
-print("\n--- Módulo de Pré-processamento Integrado ---")
-data_frame = load_data()
-processed_data_frame = preprocess_data(data_frame)
-print("Processamento integrado concluído.")
-
-# Criar um DataFrame de exemplo com NaN e categóricos para o processador
-raw_data_for_processing = {
-    'numerical_feat_1': [10, 20, np.nan, 30, 40, 50],
-    'numerical_feat_2': [1.0, 2.5, 3.0, np.nan, 5.0, 6.5],
-    'categorical_feat_A': ['Red', 'Blue', 'Red', 'Green', 'Blue', 'Red'],
-    'categorical_feat_B': ['X', 'Y', 'Z', 'X', 'Y', np.nan],
-    'target': [0, 1, 0, 1, 0, 1]
-}
-df_raw_processor = pd.DataFrame(raw_data_for_processing)
+# ======================================================
+# 1. Carregamento / Criação do DataFrame de exemplo
+# ======================================================
+print("\n--- Carregando dados ---")
+df_raw = load_data()
+print(f"Dataset carregado com shape: {df_raw.shape}")
 
 
-print("\n--- Utilizando DataProcessor ---")
-try:
-    processor = DataProcessor(df_raw_processor)
+# ======================================================
+# 2. Pré-processamento dos dados com DataProcessor
+# ======================================================
+print("\n--- Pré-processando dados com DataProcessor ---")
 
-    # 1. Tratando valores ausentes
-    df_processed_missing = processor.handle_missing_values(strategy='mean')
-    print("\nApós tratativa de missing values (mean):\n", df_processed_missing.head())
+processor = DataProcessor(df_raw)
 
-    # 2. Normalizando features
-    df_normalized = DataProcessor(df_processed_missing).normalize_features(columns=['numerical_feat_1', 'numerical_feat_2'])
-    print("\nApós normalização:\n", df_normalized.head())
+# Exemplo de pipeline de pré-processamento
+df_processed = processor.handle_missing_values(strategy="mean")
 
-    # 3. Codificando categóricas (use o df_processed_missing antes de normalizar se preferir, ou normalize primeiro e depois encodifique)
-    df_final = DataProcessor(df_normalized).encode_categorical(columns=['categorical_feat_A', 'categorical_feat_B'])
-    print("\nApós One-Hot Encoding:\n", df_final.head())
+# Normalizar colunas numéricas (exemplo)
+numerical_cols = df_processed.select_dtypes(include=[np.number]).columns.tolist()
+numerical_cols.remove("target")
 
-except (TypeError, ValueError) as e:
-    print(f"Erro ao usar DataProcessor: {e}")
+df_processed = DataProcessor(df_processed).normalize_features(columns=numerical_cols)
 
-print("\n--- Módulo de Pré-processamento Integrado Da Tarefa 2 ---")
-data_frame_task2 = load_data()
-# Não vamos preprocessar aqui para focar no DataProcessor, mas se quisesse, seria:
-# processed_data_frame_task2 = preprocess_data(data_frame_task2)
-print("Módulos da Tarefa 2 ainda presente.")
+# Codificar colunas categóricas
+categorical_cols = df_processed.select_dtypes(include=["object"]).columns.tolist()
+if categorical_cols:
+    df_processed = DataProcessor(df_processed).encode_categorical(columns=categorical_cols)
+
+print("Pré-processamento concluído.")
+print(df_processed.head())
 
 
+# ======================================================
+# 3. Separação em treino e teste com DataSplitter
+# ======================================================
+print("\n--- Dividindo dados com DataSplitter ---")
+
+splitter = DataSplitter(df_processed)
+train_df, test_df = splitter.split(test_size=0.25, random_state=42)
+
+X_train = train_df.drop(columns=["target"])
+y_train = train_df["target"]
+
+X_test = test_df.drop(columns=["target"])
+y_test = test_df["target"]
+
+print(f"Treino: {X_train.shape[0]} amostras")
+print(f"Teste: {X_test.shape[0]} amostras")
+
+
+# ======================================================
+# 4. Treinamento do modelo com ModelTrainer
+# ======================================================
+print("\n--- Treinando modelo LogisticRegression ---")
+
+log_reg_model = LogisticRegression(max_iter=1000, random_state=42)
+trainer = ModelTrainer(log_reg_model)
+
+trainer.train(X_train, y_train)
+
+
+# ======================================================
+# 5. Avaliação do modelo
+# ======================================================
+print("\n--- Avaliando modelo ---")
+accuracy = trainer.evaluate(X_test, y_test)
+print(f"Acurácia do modelo: {accuracy:.4f}")
+
+
+# ======================================================
+# 6. Salvando o modelo treinado
+# ======================================================
+print("\n--- Salvando modelo ---")
+
+model_dir = "models"
+model_path = os.path.join(model_dir, "logistic_regression_model.joblib")
+
+trainer.save_model(model_path)
+print(f"Modelo salvo em: {model_path}")
+
+
+# ======================================================
+# 7. Carregando o modelo salvo
+# ======================================================
+print("\n--- Carregando modelo salvo ---")
+loaded_model = ModelTrainer.load_model(model_path)
+
+print(f"Modelo carregado: {type(loaded_model)}")
+
+
+# ======================================================
+# 8. Predição com o modelo carregado
+# ======================================================
+print("\n--- Fazendo predição com modelo carregado ---")
+
+sample_X = X_test.iloc[:3]
+predictions = loaded_model.predict(sample_X)
+
+print("Amostras usadas para predição:")
+print(sample_X)
+
+print("Predições:")
+print(predictions)
+
+
+# ======================================================
+# Execução principal
+# ======================================================
 if __name__ == "__main__":
-    print("Ambiente configurado com sucesso!")
+    print("\nPipeline de Machine Learning executado com sucesso ✅")
