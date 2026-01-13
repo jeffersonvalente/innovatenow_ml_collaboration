@@ -2,7 +2,7 @@
 
 Projeto de exemplo da **InnovateNow Tech** para evolução progressiva em **MLOps**, cobrindo desde a configuração inicial de ambiente até a criação de **módulos reutilizáveis**, **classes com type hints** e **testes unitários**, seguindo um fluxo realista de tarefas incrementais.
 
-O projeto foi desenvolvido em **4 tarefas**, cada uma construindo sobre a anterior, mantendo **continuidade cronológica**, histórico de commits limpo e boas práticas de engenharia.
+O projeto foi desenvolvido em **5 tarefas**, cada uma construindo sobre a anterior, mantendo **continuidade cronológica**, histórico de commits limpo e boas práticas de engenharia.
 
 ---
 
@@ -157,6 +157,71 @@ pytest -q
 
 ---
 
+## ✅ Tarefa 5 — Treinamento, Avaliação e Persistência de Modelos (ModelTrainer)
+
+### Contexto
+Após estruturar o pipeline de dados (processamento + split), o próximo passo em um fluxo de MLOps é encapsular o ciclo de vida do modelo:
+- Treino
+- Avaliação
+- Persistência (salvar/carregar)
+- Verificação de inferência após load
+
+### Objetivos
+- Criar um módulo reutilizável para treinar e avaliar modelos scikit-learn
+- Garantir validações de entrada e estado (modelo treinado)
+- Persistir modelos com `joblib`
+- Adicionar testes unitários completos para o novo módulo
+- Integrar o fluxo ao `main.py`
+
+### Implementações
+- Criação da branch `feat/model-trainer-module`
+- Novo módulo `src/model_trainer.py` com a classe `ModelTrainer`:
+  - `train(X: pd.DataFrame, y: pd.Series) -> None`
+  - `evaluate(X_test: pd.DataFrame, y_test: pd.Series) -> float` (usa `accuracy_score`)
+  - `save_model(path: str | os.PathLike) -> None`
+  - `load_model(path: str | os.PathLike) -> Any`
+- Testes unitários em `tests/test_model_trainer.py` cobrindo:
+  - treino sem erro
+  - avaliação via `accuracy_score`
+  - save/load e equivalência funcional via predição
+  - erros esperados (não treinado, dados vazios, tipos inválidos, arquivo inexistente)
+- Integração no `main.py`:
+  - Carrega/cria DataFrame
+  - Pré-processa com `DataProcessor`
+  - Divide com `DataSplitter`
+  - Treina `LogisticRegression` com `ModelTrainer`
+  - Avalia e imprime acurácia
+  - Salva em `models/logistic_regression_model.joblib`
+  - Carrega e realiza predição para validar persistência
+
+### Observação sobre artefatos de modelo
+Arquivos gerados em `models/` e `*.joblib` são ignorados via `.gitignore` para manter o repositório limpo e evitar versionamento de binários.
+
+---
+
+## ✅ Estrutura Atual
+
+```text
+innovatenow_ml_collaboration/
+├── src/
+│   ├── model_trainer.py
+│   └── utils/
+│       ├── data_splitter.py
+│       └── data_processor.py
+├── tests/
+│   ├── test_data_splitter.py
+│   ├── test_data_processor.py
+│   └── test_model_trainer.py
+├── main.py
+├── data_preprocessing.py
+├── requirements.txt
+├── pytest.ini
+├── .gitignore
+└── venv/
+```
+
+---
+
 ## ✅ Boas Práticas Aplicadas
 
 - Commits seguindo **Conventional Commits**
@@ -169,9 +234,10 @@ pytest -q
 
 ## 📌 Observações Finais
 
-Este repositório representa um **crescimento progressivo e realista** em MLOps, desde setup inicial até engenharia de dados testável, refletindo práticas usadas em ambientes profissionais.
+Este repositório representa um **crescimento progressivo e realista** em MLOps, desde setup inicial até engenharia de dados testável e ciclo básico de vida de modelos.
 
 👉 Ideal como base para:
 - Pipelines de ML mais complexos
 - Integração futura com modelos
 - CI/CD e automação
+- Versionamento de artefatos (ex.: DVC/MLflow)
