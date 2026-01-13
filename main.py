@@ -16,17 +16,17 @@ print(f"Scikit-learn version: {sklearn.__version__}")
 print("--- Versão da Main: Iniciando Execução Principal ---")
 
 
-# ======================================================
+# ====
 # 1. Carregamento / Criação do DataFrame de exemplo
-# ======================================================
+# ====
 print("\n--- Carregando dados ---")
 df_raw = load_data()
 print(f"Dataset carregado com shape: {df_raw.shape}")
 
 
-# ======================================================
+# ====
 # 2. Pré-processamento dos dados com DataProcessor
-# ======================================================
+# ====
 print("\n--- Pré-processando dados com DataProcessor ---")
 
 processor = DataProcessor(df_raw)
@@ -34,14 +34,23 @@ processor = DataProcessor(df_raw)
 # Exemplo de pipeline de pré-processamento
 df_processed = processor.handle_missing_values(strategy="mean")
 
-# Normalizar colunas numéricas (exemplo)
+# Garantia mínima: target precisa existir para treino/avaliação
+TARGET_COL = "target"
+if TARGET_COL not in df_processed.columns:
+    raise ValueError(f"A coluna '{TARGET_COL}' não foi encontrada no DataFrame processado.")
+
+# Normalizar colunas numéricas (somente features, nunca o target)
 numerical_cols = df_processed.select_dtypes(include=[np.number]).columns.tolist()
-numerical_cols.remove("target")
+if TARGET_COL in numerical_cols:
+    numerical_cols.remove(TARGET_COL)
 
-df_processed = DataProcessor(df_processed).normalize_features(columns=numerical_cols)
+if numerical_cols:
+    df_processed = DataProcessor(df_processed).normalize_features(columns=numerical_cols)
 
-# Codificar colunas categóricas
+# Codificar colunas categóricas (somente features, nunca o target)
 categorical_cols = df_processed.select_dtypes(include=["object"]).columns.tolist()
+categorical_cols = [c for c in categorical_cols if c != TARGET_COL]
+
 if categorical_cols:
     df_processed = DataProcessor(df_processed).encode_categorical(columns=categorical_cols)
 
@@ -49,27 +58,30 @@ print("Pré-processamento concluído.")
 print(df_processed.head())
 
 
-# ======================================================
+# ====
 # 3. Separação em treino e teste com DataSplitter
-# ======================================================
+# ====
 print("\n--- Dividindo dados com DataSplitter ---")
 
 splitter = DataSplitter(df_processed)
 train_df, test_df = splitter.split(test_size=0.25, random_state=42)
 
-X_train = train_df.drop(columns=["target"])
-y_train = train_df["target"]
+# IMPORTANTE:
+# DataSplitter retorna DataFrames completos (features + target).
+# A separação X/y deve ser feita manualmente após o split.
+X_train = train_df.drop(columns=[TARGET_COL])
+y_train = train_df[TARGET_COL]
 
-X_test = test_df.drop(columns=["target"])
-y_test = test_df["target"]
+X_test = test_df.drop(columns=[TARGET_COL])
+y_test = test_df[TARGET_COL]
 
 print(f"Treino: {X_train.shape[0]} amostras")
 print(f"Teste: {X_test.shape[0]} amostras")
 
 
-# ======================================================
+# ====
 # 4. Treinamento do modelo com ModelTrainer
-# ======================================================
+# ====
 print("\n--- Treinando modelo LogisticRegression ---")
 
 log_reg_model = LogisticRegression(max_iter=1000, random_state=42)
@@ -78,38 +90,38 @@ trainer = ModelTrainer(log_reg_model)
 trainer.train(X_train, y_train)
 
 
-# ======================================================
+# ====
 # 5. Avaliação do modelo
-# ======================================================
+# ====
 print("\n--- Avaliando modelo ---")
 accuracy = trainer.evaluate(X_test, y_test)
 print(f"Acurácia do modelo: {accuracy:.4f}")
 
 
-# ======================================================
+# ====
 # 6. Salvando o modelo treinado
-# ======================================================
+# ====
 print("\n--- Salvando modelo ---")
 
-model_dir = "models"
-model_path = os.path.join(model_dir, "logistic_regression_model.joblib")
+model_path = os.path.join("models", "logistic_regression_model.joblib")
 
+# save_model já cria diretórios necessários; não repetir os.makedirs no main
 trainer.save_model(model_path)
 print(f"Modelo salvo em: {model_path}")
 
 
-# ======================================================
+# ====
 # 7. Carregando o modelo salvo
-# ======================================================
+# ====
 print("\n--- Carregando modelo salvo ---")
 loaded_model = ModelTrainer.load_model(model_path)
 
 print(f"Modelo carregado: {type(loaded_model)}")
 
 
-# ======================================================
+# ====
 # 8. Predição com o modelo carregado
-# ======================================================
+# ====
 print("\n--- Fazendo predição com modelo carregado ---")
 
 sample_X = X_test.iloc[:3]
@@ -122,8 +134,8 @@ print("Predições:")
 print(predictions)
 
 
-# ======================================================
+# ====
 # Execução principal
-# ======================================================
+# ====
 if __name__ == "__main__":
     print("\nPipeline de Machine Learning executado com sucesso ✅")
