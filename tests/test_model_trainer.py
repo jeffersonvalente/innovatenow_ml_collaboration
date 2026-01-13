@@ -1,6 +1,6 @@
-import os
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
@@ -17,7 +17,6 @@ def sample_data():
     Retorna:
         X_train, X_test, y_train, y_test (todos no formato esperado)
     """
-    # Dataset simples (binário) para classificação
     df = pd.DataFrame(
         {
             "feature1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -75,8 +74,10 @@ def test_save_and_load_model(tmp_path: Path, sample_data):
     - salvar o modelo treinado em disco
     - carregar via load_model
     - tipo do modelo carregado
-    - "equivalência" prática: mesmas predições para o mesmo input
-      (comparar objeto por igualdade direta não é confiável em sklearn)
+    - equivalência funcional: mesmas predições no mesmo input
+
+    Observação:
+    Comparar objetos sklearn por igualdade direta não é confiável.
     """
     X_train, X_test, y_train, _ = sample_data
 
@@ -89,14 +90,14 @@ def test_save_and_load_model(tmp_path: Path, sample_data):
     assert model_path.exists()
 
     loaded = ModelTrainer.load_model(model_path)
-
     assert isinstance(loaded, LogisticRegression)
 
-    # Em sklearn, igualdade direta geralmente não faz sentido (não implementa __eq__ útil).
-    # Então validamos equivalência funcional por predição.
-    original_preds = trainer.model.predict(X_test)
-    loaded_preds = loaded.predict(X_test)
-    assert (original_preds == loaded_preds).all()
+    # Mais robusto: usa um slice do X_test do próprio fixture
+    x_sample = X_test.iloc[:1]
+    original_pred = trainer.model.predict(x_sample)
+    loaded_pred = loaded.predict(x_sample)
+
+    assert (original_pred == loaded_pred).all()
 
 
 def test_evaluate_raises_if_not_trained(sample_data):
@@ -150,25 +151,22 @@ def test_evaluate_raises_on_empty_data(sample_data):
 
 def test_train_type_validation():
     """
-    Garante que o método train valida tipos:
+    Testes explícitos para TypeError no train():
     - X precisa ser DataFrame
     - y precisa ser Series
     """
     trainer = ModelTrainer(LogisticRegression(max_iter=1000, random_state=42))
 
-    X_wrong = [1, 2, 3]  # type: ignore
-    y_wrong = [0, 1, 0]  # type: ignore
+    with pytest.raises(TypeError):
+        trainer.train(np.array([[1, 2], [3, 4]]), pd.Series([0, 1]))  # X não é DataFrame
 
     with pytest.raises(TypeError):
-        trainer.train(X_wrong, pd.Series([0, 1, 0]))  # type: ignore[arg-type]
-
-    with pytest.raises(TypeError):
-        trainer.train(pd.DataFrame({"a": [1, 2, 3]}), y_wrong)  # type: ignore[arg-type]
+        trainer.train(pd.DataFrame({"a": [1, 2]}), pd.DataFrame({"y": [0, 1]}))  # y não é Series
 
 
 def test_evaluate_type_validation(sample_data):
     """
-    Garante que o método evaluate valida tipos:
+    Testes explícitos para TypeError no evaluate():
     - X_test precisa ser DataFrame
     - y_test precisa ser Series
     """

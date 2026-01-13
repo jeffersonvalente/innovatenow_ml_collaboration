@@ -47,19 +47,17 @@ class ModelTrainer:
         Inicializa o ModelTrainer com um modelo sklearn.
 
         Parameters
-        ----------
+        ----
         model : SklearnModelProtocol
             Instância de um modelo do scikit-learn (ex: LogisticRegression).
 
         Raises
-        ------
+        ----
         TypeError
             Se o modelo não implementar os métodos fit e predict.
         """
         if not hasattr(model, "fit") or not hasattr(model, "predict"):
-            raise TypeError(
-                "O modelo fornecido deve possuir os métodos 'fit' e 'predict'."
-            )
+            raise TypeError("O modelo fornecido deve possuir os métodos 'fit' e 'predict'.")
 
         self.model: SklearnModelProtocol = model
         self._is_trained: bool = False
@@ -69,14 +67,14 @@ class ModelTrainer:
         Treina o modelo com os dados fornecidos.
 
         Parameters
-        ----------
+        ----
         X : pd.DataFrame
             Features de treinamento.
         y : pd.Series
             Target de treinamento.
 
         Raises
-        ------
+        ----
         TypeError
             Se X não for DataFrame ou y não for Series.
         ValueError
@@ -97,19 +95,19 @@ class ModelTrainer:
         Avalia o modelo treinado utilizando acurácia.
 
         Parameters
-        ----------
+        ----
         X_test : pd.DataFrame
             Features de teste.
         y_test : pd.Series
             Target de teste.
 
         Returns
-        -------
+        ----
         float
             Score de acurácia do modelo.
 
         Raises
-        ------
+        ----
         RuntimeError
             Se o modelo ainda não foi treinado.
         TypeError
@@ -118,9 +116,7 @@ class ModelTrainer:
             Se os dados de teste estiverem vazios.
         """
         if not self._is_trained:
-            raise RuntimeError(
-                "O modelo ainda não foi treinado. Execute o método train() primeiro."
-            )
+            raise RuntimeError("O modelo ainda não foi treinado. Execute o método train() primeiro.")
 
         if not isinstance(X_test, pd.DataFrame):
             raise TypeError("X_test deve ser um pandas DataFrame.")
@@ -131,7 +127,6 @@ class ModelTrainer:
 
         predictions = self.model.predict(X_test)
         accuracy: float = accuracy_score(y_test, predictions)
-
         return accuracy
 
     def save_model(self, path: Union[str, os.PathLike]) -> None:
@@ -139,30 +134,35 @@ class ModelTrainer:
         Salva o modelo treinado em disco usando joblib.
 
         Parameters
-        ----------
+        ----
         path : str | os.PathLike
             Caminho onde o modelo será salvo.
 
         Raises
-        ------
+        ----
         RuntimeError
             Se o modelo ainda não foi treinado.
+        TypeError
+            Se o caminho não for str/path-like.
         ValueError
-            Se o caminho for inválido.
+            Se o caminho for vazio ou inválido.
         """
         if not self._is_trained:
-            raise RuntimeError(
-                "O modelo ainda não foi treinado e não pode ser salvo."
-            )
+            raise RuntimeError("O modelo ainda não foi treinado e não pode ser salvo.")
 
         if not isinstance(path, (str, os.PathLike)):
-            raise ValueError("O path deve ser uma string ou path-like válido.")
+            raise TypeError("O path deve ser uma string ou path-like válido.")
 
-        directory = os.path.dirname(os.fspath(path))
+        # Valida e normaliza para string (lança TypeError se path-like inválido)
+        path_str = os.fspath(path)
+        if not path_str:
+            raise ValueError("O path não pode ser vazio.")
+
+        directory = os.path.dirname(path_str)
         if directory:
             os.makedirs(directory, exist_ok=True)
 
-        joblib.dump(self.model, path)
+        joblib.dump(self.model, path_str)
 
     @classmethod
     def load_model(cls, path: Union[str, os.PathLike]) -> Any:
@@ -170,21 +170,22 @@ class ModelTrainer:
         Carrega um modelo previamente salvo em disco.
 
         Parameters
-        ----------
+        ----
         path : str | os.PathLike
             Caminho do arquivo do modelo.
 
         Returns
-        -------
+        ----
         Any
             Modelo carregado.
 
         Raises
-        ------
+        ----
         FileNotFoundError
             Se o arquivo não existir.
         """
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Arquivo de modelo não encontrado: {path}")
+        path_str = os.fspath(path)
+        if not os.path.exists(path_str):
+            raise FileNotFoundError(f"Arquivo de modelo não encontrado: {path_str}")
 
-        return joblib.load(path)
+        return joblib.load(path_str)
